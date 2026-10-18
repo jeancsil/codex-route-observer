@@ -9,7 +9,71 @@ alter reasoning settings, or run the same request against multiple models.
 Recommendations are prospective policy judgments, not measured proof of how an
 alternative model would have performed.
 
-## Run
+## Automatic setup on macOS
+
+The observer can start at login, restart if it exits, and become the default
+connection for **plain `codex` in every project**. Set it up once:
+
+```sh
+cd ~/code/codex-route-observer
+uv sync --group dev
+# Reuses your existing exported TYPESAFE_API_KEY.
+uv run codex-route-observer install
+```
+
+Then start Codex normally from any project:
+
+```sh
+cd ~/code/my-project
+codex
+```
+
+The dashboard is always at **http://127.0.0.1:9393**. Existing Codex sessions need
+one restart; their connection settings cannot be changed retroactively. The page
+polls local records every three seconds while visible and Live updates is enabled.
+Tool commands by themselves do not create model requests.
+
+The installer creates the per-user LaunchAgent
+`~/Library/LaunchAgents/ai.codex-route-observer.plist` and changes only the default
+provider, its managed definition, and the built-in OpenAI base URL in
+`~/.codex/config.toml`. The built-in URL override also captures resumed threads
+whose saved provider is `openai`, rather than only new `route_observer` threads.
+Your selected model,
+reasoning effort, profiles, and unrelated settings are preserved. A dated backup
+of the previous Codex config is saved alongside it. ChatGPT sign-in is reused;
+there is no API-key billing switch for Codex.
+
+For login startup, the existing Jev key and service settings are stored in
+`~/Library/Application Support/codex-route-observer/service.json`, readable only
+by your user (mode 0600). They are outside the repository and never printed or
+included in the LaunchAgent plist. Logs are in
+`~/Library/Logs/codex-route-observer/server.log`.
+
+Reinstalling preserves the saved Jev key, endpoint, model, timeout, concurrency,
+and port. Explicit environment variables override those saved values; `install
+--port` takes precedence over `OBSERVER_PORT`. If replacement startup or a config
+write fails, the installer restores the previous files and running service. Any
+failure to complete recovery is reported explicitly.
+
+Restart the installed service after changing Python code or policy:
+
+```sh
+launchctl kickstart -k gui/$(id -u)/ai.codex-route-observer
+```
+
+For a one-off direct ChatGPT connection, use
+`codex -c 'model_provider="openai"' -c 'openai_base_url="https://chatgpt.com/backend-api/codex"'`.
+To stop using the observer by default, restore the root `model_provider` setting
+to `"openai"` and remove the observer's root `openai_base_url` override in
+`~/.codex/config.toml`, then stop the service with
+`launchctl bootout gui/$(id -u)/ai.codex-route-observer`. This leaves recorded data
+and the config backup intact.
+
+If a shared Codex background server is retaining older settings, exit its TUI and
+resume once with `codex --no-daemon resume <SESSION_ID>` to use a fresh local
+runtime. A resumed thread keeps its original conversation history.
+
+## Manual launch (alternative)
 
 Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and an installed Codex CLI.
 
@@ -59,6 +123,37 @@ Other Codex network traffic (plugins, MCP, sign-in, etc.) is outside this proxy.
   as CSV. Filters are preserved in the URL; live updates can be paused.
 - Missing, low-confidence, interrupted, and failed classifications remain distinct.
   A recommendation mismatch does not mean the actual model failed.
+- The theme toggle sits below the workspace label in the bottom-left sidebar.
+  It follows the system theme initially and remembers an explicit choice.
+
+### Jev usage
+
+The **Jev usage** link jumps to a dedicated section on the same page. It records
+each actual Jev HTTP attempt, its API time and queue delay, status, question count,
+request/response sizes, reported input/output tokens, and calculated USD cost.
+Filter by status or period and expand a row to read the recorded response JSON.
+These views use only local SQLite data; inspecting them never invokes Jev.
+
+Cost is calculated exactly from API-reported input tokens at the documented direct
+TypeSafe list price: **$0.042 per million input tokens; output free**, verified
+2026-10-18 for `jev-1.13.0` and `jev-1.14.0` at
+[TypeSafe Models](https://docs.typesafe.ai/models). Each priced call stores the
+returned version, integer nanodollar cost, applied rate, source, and verification
+date. Costs are returned as decimal strings with nine places, without intermediate
+rounding or floating-point summation. Account credits, discounts, and tax are not
+reported by this endpoint and are excluded: this is precise list-price accounting,
+not an invoice reconciliation.
+
+Unknown versions, non-direct gateways, missing usage, and network failures have
+**unavailable** costs, not a fabricated zero. Subtotals show their priced-call
+coverage. An invalid verdict can still have reported/billable usage, so its cost
+is preserved even when classification fails. Calls predating this instrumentation
+have no saved usage or response; their costs cannot be recovered, and the page
+explicitly reports that historical gap. No requests are replayed to fill it.
+
+Response bodies are fetched from the local database only when expanded. They are
+bounded to 65,536 characters, redact recognizable credential strings, and render
+as text. Authorization headers and classifier input bodies are never persisted.
 
 Jev runs on a bounded queue with separate HTTP connections. Its classification
 never gates forwarding. The proxy still necessarily adds a local network hop and
@@ -99,9 +194,9 @@ headers to inherit context. Truncated/missing context is visible in request deta
 | `OBSERVER_CLASSIFICATION_CONCURRENCY` | `2` |
 
 `.env.example` is a reference; environment files are not loaded automatically.
-Only the latest 1,200-character user request excerpt and observation metadata are
-persisted to SQLite. Full request/response bodies and authentication headers are
-not stored. Prompt/context excerpts are sent to your configured TypeSafe endpoint
+The latest 1,200-character user request excerpt, observation metadata, and bounded
+Jev response bodies are persisted to SQLite. Full Codex request/response bodies,
+Jev input bodies, and authentication headers are not stored. Prompt/context excerpts are sent to your configured TypeSafe endpoint
 for classification. The service binds to `127.0.0.1`; the dashboard is intended for
 local use. Data lives in the ignored `data/` directory until you remove it.
 

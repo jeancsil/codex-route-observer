@@ -2,19 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <title>Codex Route Observer</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%233f46d1'/%3E%3Cpath d='M10 12h9v16m0-8h11m-5-5 5 5-5 5' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
+  <script src="/static/theme.js"></script>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/app.js" defer></script>
+  <script src="/static/jev.js" defer></script>
 </head>
 <body>
   <aside class="rail">
     <a class="brand" href="/"><span class="brand-icon">↳</span><span>Route<br><strong>Observer</strong></span></a>
     <span class="rail-label">WORKSPACE</span>
     <a class="rail-link active" href="/" aria-current="page"><span>▤</span> Request explorer</a>
+    <a class="rail-link" href="#jev-usage"><span>◷</span> Jev usage</a>
     <button class="rail-link" id="policy-button"><span>◈</span> Model policy</button>
-    <div class="rail-bottom"><div class="small-dot"></div><span>Codex CLI × Jev<br><small>Local workspace</small></span></div>
+    <div class="rail-footer">
+      <div class="rail-bottom"><div class="small-dot"></div><span>Codex CLI × Jev<br><small>Local workspace</small></span></div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" title="Switch to dark mode"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20.9 13.3A9 9 0 0 1 10.7 3.1a9 9 0 1 0 10.2 10.2Z"/></svg><span>Dark mode</span></button>
+    </div>
   </aside>
   <main>
     <header class="topbar"><span><span class="muted">Workspace</span> <span class="slash">/</span> Request explorer</span><span class="mode">OBSERVE MODE</span></header>
@@ -50,7 +56,26 @@
         <div id="empty" class="empty"><span class="empty-icon">↳</span><h3>Your next request starts the story.</h3><p>Start the observer, then launch Codex through it.<br>Requests will appear here as you work.</p><code>uv run codex-route-observer codex --</code></div>
         <footer class="pagination"><span id="page-info">No requests</span><div><button class="button" id="prev" disabled>← Previous</button><button class="button" id="next" disabled>Next →</button></div></footer>
       </section>
-      <p class="footnote">Recommendations follow your model policy. They are estimates of suitability, not proof that another model would perform better. Request routing stays unchanged.</p>
+      <section class="panel jev-panel" id="jev-usage" aria-labelledby="jev-title">
+        <div class="section-title"><div><h2 id="jev-title">Jev usage</h2><p>Measured from existing API calls. Viewing these metrics makes no Jev requests.</p></div><span class="quiet-tag">LOCAL ACCOUNTING</span></div>
+        <form class="jev-filters" id="jev-filters">
+          <label>Call status<select name="status"><option value="">All statuses</option><option value="success">Succeeded</option><option value="error">Failed</option><option value="pending">In flight</option><option value="interrupted">Interrupted</option></select></label>
+          <label>Period<select name="period"><option value="">All time</option><option value="24">Last 24 hours</option><option value="168">Last 7 days</option><option value="720">Last 30 days</option></select></label>
+          <span class="jev-scope">Filters apply to Jev calls below.</span>
+        </form>
+        <div class="jev-metrics metrics" aria-live="polite">
+          <div class="metric"><span>Jev API requests</span><strong id="jev-total">0</strong><small id="jev-status-note">No calls captured</small></div>
+          <div class="metric"><span>Average API time</span><strong id="jev-time">—</strong><small id="jev-time-note">Full response duration</small></div>
+          <div class="metric"><span>Reported input tokens</span><strong id="jev-tokens">—</strong><small id="jev-token-note">Output tokens are free</small></div>
+          <div class="metric jev-cost"><span>Calculated list-price cost · USD</span><strong id="jev-cost">—</strong><small id="jev-cost-note">Waiting for reported usage</small></div>
+        </div>
+        <div class="jev-notes"><p id="jev-pricing">Pricing is based on API-reported usage and a verified model rate.</p><p id="jev-history" hidden></p></div>
+        <div id="jev-error" role="alert" hidden></div>
+        <div class="table-scroll"><table class="jev-table"><thead><tr><th>Time / model</th><th>Result</th><th>API time / queue</th><th>Input / output tokens</th><th>Cost · USD</th><th>Response</th></tr></thead><tbody id="jev-rows"></tbody></table></div>
+        <div class="jev-empty" id="jev-empty">No Jev calls match this view. New classification calls will appear automatically.</div>
+        <footer class="pagination"><span id="jev-page-info">No calls</span><div><button class="button" id="jev-prev" disabled>← Previous</button><button class="button" id="jev-next" disabled>Next →</button></div></footer>
+      </section>
+      <p class="footnote">Recommendations follow your model policy. They are estimates of suitability, not proof that another model would perform better. Request routing stays unchanged. After automatic setup, run Codex normally in any project. Restart sessions started before setup once to capture their future requests.</p>
     </section>
   </main>
   <dialog id="detail"><div class="drawer-head"><span class="eyebrow">REQUEST DETAILS</span><button class="icon-button" id="close-detail" aria-label="Close details">×</button></div><div id="detail-content"></div></dialog>

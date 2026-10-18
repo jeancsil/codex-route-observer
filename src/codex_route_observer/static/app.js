@@ -30,6 +30,7 @@ function render(data) {
   items = data.items; total = data.summary.total;
   const s = data.summary;
   $('#total').textContent = fmt(s.total);
+  $('#scope-label').textContent = s.latest_request_at ? `Latest: ${new Date(s.latest_request_at).toLocaleString()}` : 'Across the current view';
   $('#mismatches').textContent = s.classified ? fmt(s.mismatches) : '—';
   $('#mismatch-note').textContent = s.classified ? `${percent(s.mismatches / s.classified)} of classified requests` : 'Waiting for classifications';
   $('#classified').textContent = fmt(s.classified);

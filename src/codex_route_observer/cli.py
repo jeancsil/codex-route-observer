@@ -45,10 +45,21 @@ def main():
     codex.add_argument("--port", type=int, default=int(os.getenv("OBSERVER_PORT", "9393")))
     codex.add_argument("--auth", choices=["chatgpt", "api"], default="chatgpt")
     codex.add_argument("args", nargs=argparse.REMAINDER, help="Codex arguments after --")
+    install_parser = sub.add_parser(
+        "install", help="Start automatically at macOS login and make plain codex use the observer"
+    )
+    install_parser.add_argument("--port", type=int, default=None)
     args = parser.parse_args()
-    if not 1 <= args.port <= 65535:
+    if args.port is not None and not 1 <= args.port <= 65535:
         parser.error("port must be between 1 and 65535")
-    if args.command == "serve":
+    if args.command == "install":
+        from .service import install
+
+        try:
+            install(Path.cwd(), args.port)
+        except (ValueError, RuntimeError) as exc:
+            parser.error(str(exc))
+    elif args.command == "serve":
         settings = Settings()
         if args.policy:
             settings.policy_path = args.policy

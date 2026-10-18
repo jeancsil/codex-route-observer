@@ -5,6 +5,7 @@ import time
 
 import httpx
 
+from .jev_usage import JevMeter
 from .settings import Settings
 from .store import Store
 
@@ -51,6 +52,7 @@ def choice(answer: dict, options: dict) -> tuple[str, float, dict]:
 class Classifier:
     def __init__(self, settings: Settings, policy: dict, store: Store, transport=None):
         self.settings, self.policy, self.store = settings, policy, store
+        self.meter = JevMeter(store)
         self.queue: asyncio.Queue = asyncio.Queue(settings.queue_size)
         self.workers = []
         self.http = httpx.AsyncClient(
@@ -80,7 +82,7 @@ class Classifier:
             )
         else:
             try:
-                self.queue.put_nowait((request_id, state))
+                self.queue.put_nowait((request_id, state, time.perf_counter()))
             except asyncio.QueueFull:
                 self.store.update(
                     request_id,
@@ -96,14 +98,16 @@ class Classifier:
 
     async def _worker(self):
         while True:
-            request_id, state = await self.queue.get()
+            request_id, state, queued_at = await self.queue.get()
             try:
-                await self.classify(request_id, state)
+                await self.classify(request_id, state, queued_at)
             finally:
                 self.queue.task_done()
 
-    async def classify(self, request_id: str, state: dict):
+    async def classify(self, request_id: str, state: dict, queued_at=None):
         start = time.perf_counter()
+        call_id = None
+        api_duration = None
         models = {k: v["criteria"] for k, v in self.policy["models"].items()}
         questions = {
             "model": {
@@ -128,7 +132,8 @@ class Classifier:
             },
         }
         try:
-            response = await self.http.post(
+            request = self.http.build_request(
+                "POST",
                 "/v1/systemone",
                 json={
                     "model": self.settings.typesafe_model,
@@ -136,6 +141,16 @@ class Classifier:
                     "questions": questions,
                 },
             )
+            call_id = self.meter.start(
+                request_id=request_id,
+                requested_model=self.settings.typesafe_model,
+                question_count=len(questions),
+                request_bytes=len(request.content),
+                queue_ms=round((start - queued_at) * 1000, 1) if queued_at else 0,
+            )
+            response = await self.http.send(request)
+            api_duration = round((time.perf_counter() - start) * 1000, 1)
+            self.meter.response(call_id, response, self.settings.typesafe_base, api_duration)
             response.raise_for_status()
             data = response.json()
             answers = data["answers"]
@@ -159,7 +174,16 @@ class Classifier:
                 classification_ms=round((time.perf_counter() - start) * 1000, 1),
                 policy_version=self.policy["version"],
             )
+            self.meter.update(call_id, status="success")
         except asyncio.CancelledError:
+            self.meter.update(
+                call_id,
+                status="interrupted",
+                error_type="CancelledError",
+                duration_ms=api_duration
+                if api_duration is not None
+                else round((time.perf_counter() - start) * 1000, 1),
+            )
             self.store.update(
                 request_id,
                 classification_status="interrupted",
@@ -167,6 +191,14 @@ class Classifier:
             )
             raise
         except Exception as exc:
+            self.meter.update(
+                call_id,
+                status="error",
+                error_type=type(exc).__name__,
+                duration_ms=api_duration
+                if api_duration is not None
+                else round((time.perf_counter() - start) * 1000, 1),
+            )
             # Exception messages may include request URLs or response contents;
             # store a bounded error class/status instead of raw provider bodies.
             status = (

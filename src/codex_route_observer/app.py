@@ -7,6 +7,7 @@ from collections import deque
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 import httpx
@@ -20,6 +21,7 @@ from websockets.exceptions import ConnectionClosed
 
 from .classifier import Classifier
 from .context import ContextBuilder, decode_payload
+from .jev_usage import PRICING
 from .settings import Settings, load_policy
 from .store import Store
 
@@ -233,12 +235,41 @@ def create_app(settings=None, upstream_transport=None, classifier_transport=None
             "classifier_model": settings.typesafe_model,
             "queue_depth": app.state.classifier.queue.qsize(),
             "mode": "observe",
+            "jev_pricing": PRICING,
             "upstreams": {"chatgpt": settings.chatgpt_upstream, "api": settings.api_upstream},
         }
 
     @app.get("/api/facets")
     async def facets():
         return app.state.store.facets()
+
+    @app.get("/api/jev-calls")
+    async def jev_calls(
+        status: Literal["success", "error", "pending", "interrupted"] | None = None,
+        after: datetime | None = None,
+        before: datetime | None = None,
+        limit: int = Query(20, ge=1, le=200),
+        offset: int = Query(0, ge=0),
+    ):
+        def normalized(value):
+            return (
+                value.replace(tzinfo=value.tzinfo or UTC)
+                .astimezone(UTC)
+                .isoformat(timespec="milliseconds")
+                if value
+                else None
+            )
+
+        return app.state.store.query_jev(
+            status, normalized(after), normalized(before), limit, offset
+        )
+
+    @app.get("/api/jev-calls/{call_id}")
+    async def jev_call_detail(call_id: str):
+        row = app.state.store.get_jev(call_id)
+        if not row:
+            raise HTTPException(404, "Jev call not found")
+        return row
 
     @app.get("/api/requests")
     async def requests(
