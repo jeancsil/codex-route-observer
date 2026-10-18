@@ -1,0 +1,17 @@
+# Candidate IDs must be available to your Codex account. These candidates were
+# selected from the local Codex model catalog when this project was created.
+version = "balanced-v1"
+objective = "Choose the least resource-intensive candidate that can reliably handle the next step. Use task difficulty and required reasoning, not prompt length alone. Recommend the frontier candidate only when its extra capability is warranted. This is a prospective recommendation, not a measured counterfactual outcome."
+minimum_confidence = 0.60
+
+[models.gpt-6-luna]
+label = "GPT-6 Luna"
+criteria = "Fast and affordable model for easier tasks: routine formatting, simple explanations, bounded edits, straightforward lookups, and predictable follow-up steps."
+
+[models."gpt-6.1-sol"]
+label = "GPT-6.1 Sol"
+criteria = "Workhorse for coding and everyday work: typical implementation, debugging, tests, code review, and tasks needing moderate reasoning across files."
+
+[models.gpt-6-astra]
+label = "GPT-6 Astra"
+criteria = "Frontier intelligence for the most demanding work: difficult architecture, subtle multi-system failures, complex reasoning, or unusually ambiguous requirements where the workhorse is unlikely to suffice."

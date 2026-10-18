@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Codex Route Observer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%233f46d1'/%3E%3Cpath d='M10 12h9v16m0-8h11m-5-5 5 5-5 5' stroke='white' fill='none' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <aside class="rail">
+    <a class="brand" href="/"><span class="brand-icon">↳</span><span>Route<br><strong>Observer</strong></span></a>
+    <span class="rail-label">WORKSPACE</span>
+    <a class="rail-link active" href="/" aria-current="page"><span>▤</span> Request explorer</a>
+    <button class="rail-link" id="policy-button"><span>◈</span> Model policy</button>
+    <div class="rail-bottom"><div class="small-dot"></div><span>Codex CLI × Jev<br><small>Local workspace</small></span></div>
+  </aside>
+  <main>
+    <header class="topbar"><span><span class="muted">Workspace</span> <span class="slash">/</span> Request explorer</span><span class="mode">OBSERVE MODE</span></header>
+    <section class="content">
+      <div class="page-title"><div><p class="eyebrow">A CLEARER VIEW OF YOUR MODEL CHOICES</p><h1>Where should this go?</h1><p class="subtitle">Every Codex request. The model it was sent to. The model Jev recommends.</p></div><button class="live" id="live-toggle" aria-pressed="true"><span class="small-dot"></span><span id="live-label">Live updates</span></button></div>
+      <div id="notice" class="notice" hidden></div>
+      <div class="metrics" aria-live="polite">
+        <div class="metric"><span>Requests observed</span><strong id="total">0</strong><small id="scope-label">Across the current view</small></div>
+        <div class="metric"><span>Recommended changes</span><strong id="mismatches">—</strong><small id="mismatch-note">Waiting for classifications</small></div>
+        <div class="metric"><span>Classified by Jev</span><strong id="classified">0</strong><small id="pending-note">No requests yet</small></div>
+        <div class="metric"><span>Average request time</span><strong id="latency">—</strong><small>Observed upstream duration</small></div>
+      </div>
+      <section class="panel routes-panel"><div class="section-title"><div><h2>Sent → recommended</h2><p>How your model selections compare with the active policy.</p></div><span class="quiet-tag" id="policy-version">Loading policy</span></div><div id="route-map" class="route-map"><p class="empty-inline">Model comparisons will appear as requests are classified.</p></div></section>
+      <section class="panel explorer">
+        <div class="section-title"><div class="title-with-count"><h2>Request stream</h2><span class="count" id="request-count">0</span></div><button id="export" class="button">↓ Export page</button></div>
+        <form id="filters" class="filters" role="search">
+          <label class="search"><span class="sr-only">Search prompt or session</span><input name="q" placeholder="Search prompts or sessions…" autocomplete="off"></label>
+          <label>Sent model<select name="requested_model"><option value="">All models</option></select></label>
+          <label>Recommended<select name="recommended_model"><option value="">All models</option></select></label>
+          <label>Task<select name="category"><option value="">All tasks</option></select></label>
+          <label>Comparison<select name="mismatch"><option value="">All requests</option><option value="true">Different model</option><option value="false">Same model</option></select></label>
+          <details class="more-filters"><summary>More filters <span>⌄</span></summary><div>
+            <label>Classification<select name="classification_status"><option value="">All statuses</option><option>complete</option><option>pending</option><option>disabled</option><option>error</option><option>skipped</option><option>interrupted</option></select></label>
+            <label>Session<select name="session_id"><option value="">All sessions</option></select></label>
+            <label>Transport<select name="transport"><option value="">Any transport</option><option value="http">HTTP / SSE</option><option value="websocket">WebSocket</option></select></label>
+            <label>Minimum confidence<select name="min_confidence"><option value="">Any confidence</option><option value="0.6">60% and above</option><option value="0.8">80% and above</option><option value="0.9">90% and above</option></select></label>
+            <label>From<input name="after" type="datetime-local"></label><label>Until<input name="before" type="datetime-local"></label>
+            <button type="button" id="clear" class="button">Clear all filters</button>
+          </div></details>
+        </form>
+        <div id="load-error" role="alert" hidden></div>
+        <div class="table-scroll"><table><thead><tr><th>Time / task</th><th>Request</th><th>Sent to</th><th>Jev recommends</th><th>Confidence</th><th>Comparison</th><th>Duration</th></tr></thead><tbody id="rows"></tbody></table></div>
+        <div id="empty" class="empty"><span class="empty-icon">↳</span><h3>Your next request starts the story.</h3><p>Start the observer, then launch Codex through it.<br>Requests will appear here as you work.</p><code>uv run codex-route-observer codex --</code></div>
+        <footer class="pagination"><span id="page-info">No requests</span><div><button class="button" id="prev" disabled>← Previous</button><button class="button" id="next" disabled>Next →</button></div></footer>
+      </section>
+      <p class="footnote">Recommendations follow your model policy. They are estimates of suitability, not proof that another model would perform better. Request routing stays unchanged.</p>
+    </section>
+  </main>
+  <dialog id="detail"><div class="drawer-head"><span class="eyebrow">REQUEST DETAILS</span><button class="icon-button" id="close-detail" aria-label="Close details">×</button></div><div id="detail-content"></div></dialog>
+  <dialog id="policy"><div class="drawer-head"><span class="eyebrow">ACTIVE MODEL POLICY</span><button class="icon-button" id="close-policy" aria-label="Close policy">×</button></div><div id="policy-content"></div></dialog>
+</body>
+</html>
